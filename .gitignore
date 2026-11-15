@@ -1,0 +1,13 @@
+# Entornos virtuales y dependencias
+venv/
+__pycache__/
+node_modules/
+dist/
+
+# Variables de entorno y bases de datos locales
+.env
+*.db
+*.sqlite3
+
+# Docker
+.DS_Store

@@ -1,0 +1,24 @@
+Run Alembic commands from the `backend` directory. `DATABASE_URL` must be
+provided by the environment or the backend `.env` file.
+
+Create a migration during development, then review and commit the generated
+revision:
+
+    alembic revision --autogenerate -m "describe_change"
+
+For production, first confirm `DATABASE_URL` points to the intended database
+and take a verified backup. Install the backend dependencies, then apply the
+already-reviewed migration to a fresh database:
+
+    alembic upgrade head
+
+Verify the deployed revision before starting the API:
+
+    alembic current
+
+Do not generate revisions against production. Autogenerate compares model
+metadata with the configured database; it does not replace review of schema
+changes or a backup. If the database already contains tables or data, do not
+apply this initial migration blindly: generate and review a migration that
+matches its actual schema. Use `alembic stamp` only after independently
+verifying that the existing schema exactly matches the revision being stamped.
