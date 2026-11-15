@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.models.models import Producto, Venta
+from app.models.models import InventoryMovementModel, Producto, Venta
 
 
 def create_product(
@@ -36,6 +36,7 @@ def test_register_sale_decreases_stock(
     client: TestClient,
     admin_headers: dict[str, str],
     cashier_headers: dict[str, str],
+    engine: Engine,
 ) -> None:
     product = create_product(
         client,
@@ -81,6 +82,17 @@ def test_register_sale_decreases_stock(
     )
     assert product_response.status_code == 200
     assert product_response.json()["stock_actual"] == 3
+
+    with Session(engine) as db:
+        movement = db.scalar(
+            select(InventoryMovementModel).where(
+                InventoryMovementModel.change_type == "VENTA",
+            )
+        )
+        assert movement is not None
+        assert movement.product_id == product["id"]
+        assert movement.quantity_changed == -2
+        assert movement.usuario.username == "cajero"
 
 
 def test_cashier_history_only_returns_their_sales(

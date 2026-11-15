@@ -58,3 +58,6 @@ def require_role(
         return current_user
 
     return role_dependency
+
+
+require_inventory_manager = require_role(["ADMIN", "REPOSITOR"])

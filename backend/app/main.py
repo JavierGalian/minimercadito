@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from .core.config import get_settings
 from .core.exceptions import ApplicationError
-from .routers import auth, productos, users, ventas
+from .routers import auth, inventario, productos, users, ventas
 
 
 @asynccontextmanager
@@ -40,7 +40,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -53,6 +53,11 @@ app.include_router(
     productos.router,
     prefix="/api/productos",
     tags=["Productos"],
+)
+app.include_router(
+    inventario.router,
+    prefix="/api/inventario",
+    tags=["Inventario"],
 )
 app.include_router(
     ventas.router,

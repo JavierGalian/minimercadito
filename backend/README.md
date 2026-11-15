@@ -30,9 +30,9 @@ interactivamente y almacena únicamente su hash:
 python -m app.cli create-user --username admin --role ADMIN
 ```
 
-Luego crea usuarios de caja con `--role CAJERO`. Los endpoints de escritura
-requieren Bearer JWT: la creación de productos es exclusiva de `ADMIN`, y las
-ventas permiten `ADMIN` y `CAJERO`. Un administrador autenticado puede listar y
+Luego crea usuarios de caja con `--role CAJERO` o de reposición con
+`--role REPOSITOR`. Los endpoints de productos permiten `ADMIN` y `REPOSITOR`;
+las ventas permiten `ADMIN` y `CAJERO`. Un administrador autenticado puede listar y
 crear usuarios en `/api/users`, además de desactivar a otros usuarios con
 `DELETE /api/users/{user_id}`. La desactivación conserva el registro y bloquea
 el inicio de sesión; un administrador no puede desactivarse a sí mismo.

@@ -42,6 +42,24 @@ def test_admin_can_create_and_list_users(
     assert any(item["username"] == "nuevo-cajero" for item in listing.json())
 
 
+def test_admin_can_create_repositor_user(
+    client: TestClient,
+    admin_headers: dict[str, str],
+) -> None:
+    response = client.post(
+        "/api/users",
+        headers=admin_headers,
+        json={
+            "username": "nuevo-repositor",
+            "password": "StrongPassword123!",
+            "rol": "REPOSITOR",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["rol"] == "REPOSITOR"
+
+
 def test_admin_cannot_create_duplicate_username(
     client: TestClient,
     admin_headers: dict[str, str],

@@ -15,6 +15,16 @@ class ProductoCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
+class ProductoUpdate(BaseModel):
+    nombre: str = Field(min_length=1, max_length=150)
+    descripcion: str | None
+    codigo_barras: str | None = Field(min_length=1, max_length=64)
+    precio: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    stock_actual: int = Field(ge=0)
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
 class ProductoResponse(BaseModel):
     id: int
     nombre: str
@@ -98,7 +108,7 @@ class ReporteVentasAnual(BaseModel):
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_.-]+$")
     password: str = Field(min_length=12, max_length=72)
-    rol: Literal["ADMIN", "CAJERO"]
+    rol: Literal["ADMIN", "CAJERO", "REPOSITOR"]
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -113,7 +123,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
-    rol: Literal["ADMIN", "CAJERO"]
+    rol: Literal["ADMIN", "CAJERO", "REPOSITOR"]
     activo: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -129,4 +139,17 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
-    rol: Literal["ADMIN", "CAJERO"]
+    rol: Literal["ADMIN", "CAJERO", "REPOSITOR"]
+
+
+class InventoryMovementResponse(BaseModel):
+    id: int
+    product_id: int
+    user_id: int
+    change_type: Literal["CREACION", "ACTUALIZACION", "REPOSICION", "VENTA"]
+    quantity_changed: int
+    created_at: datetime
+    product_name: str
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)

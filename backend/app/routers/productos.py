@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..api.deps import require_role
+from ..api.deps import require_inventory_manager
 from ..core.database import get_db
-from ..core.exceptions import ConflictError
 from ..models.models import Producto, UserModel
 from ..repositories.product_repo import ProductRepository
-from ..schemas.schemas import ProductoCreate, ProductoResponse
+from ..schemas.schemas import ProductoCreate, ProductoResponse, ProductoUpdate
+from ..services.product_service import ProductService
 
 router = APIRouter()
 
@@ -33,17 +32,23 @@ def obtener_producto_por_codigo(
 def crear_producto(
     datos: ProductoCreate,
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_role(["ADMIN"])),
+    current_user: UserModel = Depends(require_inventory_manager),
 ) -> Producto:
-    repo = ProductRepository(db)
-    producto = Producto(**datos.model_dump())
-    try:
-        repo.create(producto)
-        db.commit()
-        db.refresh(producto)
-    except IntegrityError as exc:
-        db.rollback()
-        raise ConflictError(
-            "No se pudo crear el producto por un conflicto de datos."
-        ) from exc
-    return producto
+    return ProductService(db).create_product(datos, current_user.id)
+
+
+@router.put(
+    "/{product_id}",
+    response_model=ProductoResponse,
+)
+def actualizar_producto(
+    product_id: int,
+    datos: ProductoUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_inventory_manager),
+) -> Producto:
+    return ProductService(db).update_product(
+        product_id,
+        datos,
+        current_user.id,
+    )

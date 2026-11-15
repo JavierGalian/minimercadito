@@ -7,12 +7,16 @@ con Docker Compose y utiliza PostgreSQL como base de datos.
 
 ## Características
 
-- **Autenticación JWT y RBAC:** roles `ADMIN` y `CAJERO`, con permisos
-  verificados también en el backend.
+- **Autenticación JWT y RBAC:** roles `ADMIN`, `CAJERO` y `REPOSITOR`, con
+  permisos verificados también en el backend.
 - **Historial de ventas aislado por usuario:** cada cajero consulta únicamente
   sus ventas; `ADMIN` puede consultar el historial global.
 - **Caja e inventario:** búsqueda de productos, registro transaccional de
-  ventas, validación de stock y administración de productos para `ADMIN`.
+  ventas, validación de stock y administración de productos para `ADMIN` y
+  `REPOSITOR`.
+- **Auditoría de inventario:** historial de altas, cambios de stock,
+  reposiciones y ventas, con usuario responsable y acceso compartido para
+  `ADMIN` y `REPOSITOR`.
 - **Gestión de usuarios:** `ADMIN` puede crear usuarios y desactivar cuentas.
 - **Reportes financieros:** resúmenes mensuales y anuales, disponibles para
   `ADMIN`. Los periodos de los reportes se calculan en UTC.
@@ -114,9 +118,8 @@ con Docker Compose y utiliza PostgreSQL como base de datos.
    - API y documentación interactiva: <http://localhost:8000/docs>
    - PostgreSQL: `localhost:${POSTGRES_PORT}` (por defecto, `localhost:5432`)
 
-   Inicia sesión con el usuario `admin` que acabas de crear. Desde la sección
-   **Usuarios**, un administrador puede dar de alta cuentas `CAJERO` u otros
-   `ADMIN`.
+   Inicia sesión con el usuario `admin` que acabas de crear.    Desde la sección **Usuarios**, un administrador puede dar de alta cuentas
+   `CAJERO`, `REPOSITOR` u otros `ADMIN`.
 
 ### Comandos útiles
 
@@ -143,6 +146,7 @@ el primer `ADMIN` con el CLI después de iniciar Compose.
 | --- | --- |
 | `ADMIN` | Inventario, gestión de usuarios, historial global y reportes mensuales/anuales. También puede operar la caja. |
 | `CAJERO` | Punto de venta e historial de sus propias ventas. No puede administrar usuarios ni consultar reportes financieros. |
+| `REPOSITOR` | Alta y actualización de productos, además del historial global de movimientos de inventario. No puede operar la caja ni administrar usuarios. |
 
 Las siguientes cuentas existen **solo en las pruebas automatizadas** de
 `backend/tests/conftest.py`; no se crean en Docker ni deben usarse en producción:
@@ -158,7 +162,8 @@ Las siguientes cuentas existen **solo en las pruebas automatizadas** de
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | Público |
 | `GET` | `/api/productos` | Público |
-| `POST` | `/api/productos` | `ADMIN` |
+| `POST`, `PUT` | `/api/productos`, `/api/productos/{product_id}` | `ADMIN`, `REPOSITOR` |
+| `GET` | `/api/inventario/historial?limit=50&offset=0` | `ADMIN`, `REPOSITOR` |
 | `POST` | `/api/ventas` | `ADMIN`, `CAJERO` |
 | `GET` | `/api/ventas/historial?limit=50&offset=0` | `ADMIN`, `CAJERO`; el cajero ve solo sus ventas |
 | `GET` | `/api/ventas/reportes/mensual?anio=2026&mes=6` | `ADMIN` |

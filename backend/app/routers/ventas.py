@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from ..api.deps import get_current_user, require_role
+from ..api.deps import require_role
 from ..core.database import get_db
 from ..models.models import UserModel, Venta
 from ..schemas.schemas import (
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/historial", response_model=list[VentaHistorialResponse])
 def listar_historial_ventas(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_role(["ADMIN", "CAJERO"])),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[Venta]:

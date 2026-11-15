@@ -17,7 +17,7 @@ export function getAuthSession() {
     if (
       typeof session.token === "string" &&
       session.token.length > 0 &&
-      ["ADMIN", "CAJERO"].includes(session.rol)
+      ["ADMIN", "CAJERO", "REPOSITOR"].includes(session.rol)
     ) {
       return session;
     }
@@ -33,7 +33,7 @@ export function getAuthSession() {
 export function saveAuthSession(session, username) {
   if (
     typeof session.access_token !== "string" ||
-    !["ADMIN", "CAJERO"].includes(session.rol)
+    !["ADMIN", "CAJERO", "REPOSITOR"].includes(session.rol)
   ) {
     throw new ApiError("La API devolvió una sesión no válida.");
   }

@@ -49,7 +49,11 @@ def main() -> None:
         help="Crear un usuario sin exponer su contraseña en argumentos.",
     )
     create_parser.add_argument("--username", required=True)
-    create_parser.add_argument("--role", choices=["ADMIN", "CAJERO"], required=True)
+    create_parser.add_argument(
+        "--role",
+        choices=["ADMIN", "CAJERO", "REPOSITOR"],
+        required=True,
+    )
     args = parser.parse_args()
 
     try:

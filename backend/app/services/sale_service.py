@@ -6,7 +6,12 @@ from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..core.exceptions import InsufficientStockError
-from ..models.models import DetalleVenta, Producto, Venta
+from ..models.models import (
+    DetalleVenta,
+    InventoryMovementModel,
+    Producto,
+    Venta,
+)
 from ..repositories.product_repo import ProductRepository
 from ..schemas.schemas import (
     ReporteVentasAnual,
@@ -24,7 +29,7 @@ class SaleService:
     def register_sale(
         self,
         venta_data: VentaCreate,
-        usuario_id: int | None = None,
+        usuario_id: int,
     ) -> Venta:
         cantidades: dict[int, int] = defaultdict(int)
         for detalle in venta_data.detalles:
@@ -68,6 +73,14 @@ class SaleService:
                 self.product_repo.update_stock(
                     producto,
                     producto.stock_actual - cantidad,
+                )
+                self.db.add(
+                    InventoryMovementModel(
+                        product_id=producto_id,
+                        user_id=usuario_id,
+                        change_type="VENTA",
+                        quantity_changed=-cantidad,
+                    )
                 )
             self.db.flush()
             self.db.commit()

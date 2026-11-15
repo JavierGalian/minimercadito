@@ -21,7 +21,7 @@ class UserModel(Base):
     __tablename__ = "usuarios"
     __table_args__ = (
         CheckConstraint(
-            "rol IN ('ADMIN', 'CAJERO')",
+            "rol IN ('ADMIN', 'CAJERO', 'REPOSITOR')",
             name="ck_usuarios_rol_valido",
         ),
     )
@@ -37,6 +37,9 @@ class UserModel(Base):
         server_default="true",
     )
     ventas: Mapped[list["Venta"]] = relationship(back_populates="usuario")
+    movimientos_inventario: Mapped[list["InventoryMovementModel"]] = relationship(
+        back_populates="usuario",
+    )
 
 
 class Producto(Base):
@@ -59,6 +62,9 @@ class Producto(Base):
     )
 
     detalles_venta: Mapped[list["DetalleVenta"]] = relationship(
+        back_populates="producto",
+    )
+    movimientos_inventario: Mapped[list["InventoryMovementModel"]] = relationship(
         back_populates="producto",
     )
 
@@ -130,3 +136,47 @@ class DetalleVenta(Base):
     @property
     def subtotal(self) -> Decimal:
         return self.precio_unitario * self.cantidad
+
+
+class InventoryMovementModel(Base):
+    __tablename__ = "movimientos_inventario"
+    __table_args__ = (
+        CheckConstraint(
+            "change_type IN ('CREACION', 'ACTUALIZACION', 'REPOSICION', 'VENTA')",
+            name="ck_movimientos_inventario_tipo_valido",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("productos.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    change_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    quantity_changed: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    producto: Mapped[Producto] = relationship(
+        back_populates="movimientos_inventario",
+    )
+    usuario: Mapped[UserModel] = relationship(
+        back_populates="movimientos_inventario",
+    )
+
+    @property
+    def product_name(self) -> str:
+        return self.producto.nombre
+
+    @property
+    def username(self) -> str:
+        return self.usuario.username

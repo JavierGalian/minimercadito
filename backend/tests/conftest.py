@@ -51,6 +51,12 @@ def engine() -> Iterator[Engine]:
                     activo=True,
                 ),
                 UserModel(
+                    username="repositor",
+                    hashed_password=hash_password("RepositorTestPass123"),
+                    rol="REPOSITOR",
+                    activo=True,
+                ),
+                UserModel(
                     username="inactivo",
                     hashed_password=hash_password("InactiveTestPass123"),
                     rol="ADMIN",
@@ -105,6 +111,16 @@ def cashier_headers(client: TestClient) -> dict[str, str]:
     response = client.post(
         "/api/auth/login",
         json={"username": "cajero", "password": "CajeroTestPass123"},
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+@pytest.fixture
+def repositor_headers(client: TestClient) -> dict[str, str]:
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "repositor", "password": "RepositorTestPass123"},
     )
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}

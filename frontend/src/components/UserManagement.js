@@ -44,6 +44,7 @@ export function createUserManagement({
           <label class="field-label" for="user-role">Rol</label>
           <select class="text-input user-role-select" id="user-role" name="rol" required>
             <option value="CAJERO">Cajero</option>
+            <option value="REPOSITOR">Repositor</option>
             <option value="ADMIN">Administrador</option>
           </select>
 
@@ -122,7 +123,12 @@ export function createUserManagement({
       roleBadge.className = `user-role-badge ${
         user.rol === "ADMIN" ? "user-role-admin" : ""
       }`;
-      roleBadge.textContent = user.rol === "ADMIN" ? "Administrador" : "Cajero";
+      roleBadge.textContent =
+        user.rol === "ADMIN"
+          ? "Administrador"
+          : user.rol === "REPOSITOR"
+            ? "Repositor"
+            : "Cajero";
       roleCell.append(roleBadge);
 
       const statusCell = document.createElement("td");

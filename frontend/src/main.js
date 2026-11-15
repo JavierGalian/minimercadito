@@ -302,21 +302,28 @@ function renderInventory() {
 
 function updateSessionUI() {
   const isAdmin = state.user?.rol === "ADMIN";
-  document.querySelector("#tab-inventory").hidden = !isAdmin;
+  const canManageInventory = isAdmin || state.user?.rol === "REPOSITOR";
+  const canOperatePos = isAdmin || state.user?.rol === "CAJERO";
+  document.querySelector("#tab-pos").hidden = !canOperatePos;
+  document.querySelector("#tab-inventory").hidden = !canManageInventory;
   document.querySelector("#tab-users").hidden = !isAdmin;
-  document.querySelector("#tab-history").hidden = !state.user;
+  document.querySelector("#tab-history").hidden = !canOperatePos;
   document.querySelector("#tab-reports").hidden = !isAdmin;
   document.querySelector("#session-controls").hidden = !state.user;
   document.querySelector("#session-identity").textContent = state.user
     ? `${state.user.username || "Usuario"} · ${state.user.rol}`
     : "";
   if (
-    !isAdmin &&
-    (!document.querySelector("#inventory-screen").hidden ||
-      !document.querySelector("#users-screen").hidden ||
-      !document.querySelector("#financial-reports-screen").hidden)
+    (!canManageInventory &&
+      !document.querySelector("#inventory-screen").hidden) ||
+    (!isAdmin &&
+      (!document.querySelector("#users-screen").hidden ||
+        !document.querySelector("#financial-reports-screen").hidden)) ||
+    (!canOperatePos &&
+      (!document.querySelector("#pos-screen").hidden ||
+        !document.querySelector("#sales-history-screen").hidden))
   ) {
-    switchView("pos");
+    switchView(canManageInventory ? "inventory" : "pos");
   }
 }
 
@@ -329,7 +336,7 @@ async function activateSession(session) {
   state.user = session;
   appShell.hidden = false;
   loginModal.hide();
-  switchView("pos");
+  switchView(session.rol === "REPOSITOR" ? "inventory" : "pos");
   updateSessionUI();
   try {
     await refreshProducts();
@@ -462,9 +469,12 @@ const financialReports = createFinancialReports({
 
 function switchView(view) {
   const isAdmin = state.user?.rol === "ADMIN";
+  const canManageInventory = isAdmin || state.user?.rol === "REPOSITOR";
+  const canOperatePos = isAdmin || state.user?.rol === "CAJERO";
   if (
-    (["inventory", "users", "reports"].includes(view) && !isAdmin) ||
-    (view === "history" && !state.user)
+    (view === "inventory" && !canManageInventory) ||
+    (["users", "reports"].includes(view) && !isAdmin) ||
+    (["pos", "history"].includes(view) && !canOperatePos)
   ) {
     return;
   }
@@ -524,10 +534,12 @@ function switchView(view) {
 }
 
 document.querySelector("#tab-pos").addEventListener("click", () => {
-  switchView("pos");
+  if (state.user?.rol !== "REPOSITOR") switchView("pos");
 });
 document.querySelector("#tab-inventory").addEventListener("click", () => {
-  if (state.user?.rol === "ADMIN") switchView("inventory");
+  if (["ADMIN", "REPOSITOR"].includes(state.user?.rol)) {
+    switchView("inventory");
+  }
 });
 document.querySelector("#tab-users").addEventListener("click", () => {
   if (state.user?.rol === "ADMIN") switchView("users");
