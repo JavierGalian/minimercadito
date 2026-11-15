@@ -19,6 +19,9 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
         },
     )
     assert admin_product.status_code == 201
+    assert admin_product.json()["creado_por"] == "admin"
+    assert admin_product.json()["creado_por_id"] is not None
+    assert admin_product.json()["actualizado_en"] is None
 
     repositor_product = client.post(
         "/api/productos",
@@ -32,6 +35,7 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
         },
     )
     assert repositor_product.status_code == 201
+    assert repositor_product.json()["creado_por"] == "repositor"
 
     product = admin_product.json()
     update_payload = {
@@ -56,17 +60,42 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
     )
     assert second_update.status_code == 200
 
+    metadata_update = client.put(
+        f"/api/productos/{product['id']}",
+        headers=repositor_headers,
+        json={
+            **update_payload,
+            "descripcion": "Actualizada",
+            "stock_actual": 4,
+        },
+    )
+    assert metadata_update.status_code == 200
+
+    product_listing = client.get("/api/productos")
+    assert product_listing.status_code == 200
+    updated_product = next(
+        item
+        for item in product_listing.json()
+        if item["id"] == product["id"]
+    )
+    assert updated_product["creado_por"] == "admin"
+    assert updated_product["actualizado_por"] == "repositor"
+    assert updated_product["actualizado_por_id"] is not None
+    assert updated_product["actualizado_en"] is not None
+
     history = client.get(
         "/api/inventario/historial",
         headers=repositor_headers,
     )
     assert history.status_code == 200
     movements = history.json()
-    assert len(movements) == 4
+    assert len(movements) == 5
     assert movements[0]["change_type"] == "ACTUALIZACION"
-    assert movements[0]["quantity_changed"] == -1
-    assert movements[1]["change_type"] == "REPOSICION"
-    assert movements[1]["quantity_changed"] == 3
+    assert movements[0]["quantity_changed"] == 0
+    assert movements[1]["change_type"] == "ACTUALIZACION"
+    assert movements[1]["quantity_changed"] == -1
+    assert movements[2]["change_type"] == "REPOSICION"
+    assert movements[2]["quantity_changed"] == 3
     assert movements[0]["username"] == "repositor"
     assert movements[0]["product_name"] == "Harina"
     assert {

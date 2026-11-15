@@ -33,6 +33,11 @@ class ProductoResponse(BaseModel):
     precio: Decimal
     stock_actual: int
     creado_en: datetime
+    creado_por_id: int | None = None
+    creado_por: str | None = None
+    actualizado_en: datetime | None = None
+    actualizado_por_id: int | None = None
+    actualizado_por: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

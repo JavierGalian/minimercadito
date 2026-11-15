@@ -17,6 +17,18 @@ import { createSalesHistory } from "./components/SalesHistory.js";
 import { createFinancialReports } from "./components/FinancialReports.js";
 import { createUserManagement } from "./components/UserManagement.js";
 
+const inventoryDateFormatter = new Intl.DateTimeFormat("es-AR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function formatInventoryDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "No disponible"
+    : inventoryDateFormatter.format(date);
+}
+
 const app = document.querySelector("#app");
 
 app.innerHTML = `
@@ -276,7 +288,24 @@ function renderInventory() {
     name.textContent = product.nombre;
     const code = document.createElement("span");
     code.textContent = product.codigo_barras || "Sin código de barras";
-    details.append(name, code);
+    const createdAt = document.createElement("span");
+    createdAt.className = "inventory-audit";
+    createdAt.textContent = `Fecha de alta: ${formatInventoryDate(product.creado_en)}`;
+    const createdBy = document.createElement("span");
+    createdBy.className = "inventory-audit";
+    createdBy.textContent = `Registrado por: ${
+      product.creado_por || "No disponible"
+    }`;
+    details.append(name, code, createdAt, createdBy);
+
+    if (product.actualizado_en) {
+      const lastUpdate = document.createElement("span");
+      lastUpdate.className = "inventory-audit";
+      lastUpdate.textContent = `Último movimiento: ${formatInventoryDate(
+        product.actualizado_en,
+      )} · ${product.actualizado_por || "No disponible"}`;
+      details.append(lastUpdate);
+    }
 
     const price = document.createElement("strong");
     price.className = "inventory-price";

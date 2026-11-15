@@ -997,6 +997,13 @@ kbd {
   white-space: nowrap;
 }
 
+.inventory-product .inventory-audit {
+  overflow: visible;
+  color: #76827a;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .inventory-price {
   color: #356c4f;
   font-size: 11px;
