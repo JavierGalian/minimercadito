@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -212,3 +214,59 @@ def test_inventory_stock_update_and_deactivation_are_audited_and_role_protected(
         "REPOSICION",
         "CREACION",
     ]
+
+
+def test_inventory_pdf_export_is_authenticated_and_contains_active_products(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    repositor_headers: dict[str, str],
+    cashier_headers: dict[str, str],
+) -> None:
+    active_product = client.post(
+        "/api/productos",
+        headers=admin_headers,
+        json={
+            "nombre": "Producto activo",
+            "codigo_barras": "7798000000101",
+            "precio": "1234.50",
+            "stock_actual": 7,
+        },
+    )
+    inactive_product = client.post(
+        "/api/productos",
+        headers=admin_headers,
+        json={
+            "nombre": "Producto dado de baja",
+            "codigo_barras": "7798000000102",
+            "precio": "500.00",
+            "stock_actual": 3,
+        },
+    )
+    assert active_product.status_code == 201
+    assert inactive_product.status_code == 201
+    assert client.delete(
+        f"/api/productos/{inactive_product.json()['id']}",
+        headers=admin_headers,
+    ).status_code == 204
+
+    response = client.get(
+        "/api/inventory/export/pdf",
+        headers=repositor_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
+    assert b"Producto activo" in response.content
+    assert b"Producto dado de baja" not in response.content
+    assert b"repositor" in response.content
+    assert re.fullmatch(
+        r'attachment; filename="inventario_\d{4}-\d{2}-\d{2}_repositor\.pdf"',
+        response.headers["content-disposition"],
+    )
+
+    assert client.get("/api/inventory/export/pdf").status_code == 401
+    assert client.get(
+        "/api/inventory/export/pdf",
+        headers=cashier_headers,
+    ).status_code == 403

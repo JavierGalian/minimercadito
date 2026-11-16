@@ -60,6 +60,11 @@ app.include_router(
     tags=["Inventario"],
 )
 app.include_router(
+    inventario.inventory_export_router,
+    prefix="/api/inventory",
+    tags=["Inventario"],
+)
+app.include_router(
     ventas.router,
     prefix="/api/ventas",
     tags=["Ventas"],
