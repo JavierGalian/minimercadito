@@ -55,6 +55,12 @@ class Producto(Base):
     codigo_barras: Mapped[str | None] = mapped_column(String(64), unique=True)
     precio: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     stock_actual: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -142,7 +148,7 @@ class InventoryMovementModel(Base):
     __tablename__ = "movimientos_inventario"
     __table_args__ = (
         CheckConstraint(
-            "change_type IN ('CREACION', 'ACTUALIZACION', 'REPOSICION', 'VENTA')",
+            "change_type IN ('CREACION', 'ACTUALIZACION', 'REPOSICION', 'VENTA', 'BAJA')",
             name="ck_movimientos_inventario_tipo_valido",
         ),
     )

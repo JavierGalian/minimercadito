@@ -162,13 +162,16 @@ Las siguientes cuentas existen **solo en las pruebas automatizadas** de
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | Público |
 | `GET` | `/api/productos` | Público |
-| `POST`, `PUT` | `/api/productos`, `/api/productos/{product_id}` | `ADMIN`, `REPOSITOR` |
+| `POST`, `PUT` | `/api/productos`, `/api/productos/{product_id}` | `ADMIN`, `REPOSITOR`; alta y edición de datos/precio |
+| `PATCH` | `/api/productos/{product_id}/stock` | `ADMIN`, `REPOSITOR`; ajusta stock y registra auditoría |
+| `DELETE` | `/api/productos/{product_id}` | `ADMIN`, `REPOSITOR`; baja lógica, conserva ventas e historial |
 | `GET` | `/api/inventario/historial?limit=50&offset=0` | `ADMIN`, `REPOSITOR` |
 | `POST` | `/api/ventas` | `ADMIN`, `CAJERO` |
 | `GET` | `/api/ventas/historial?limit=50&offset=0` | `ADMIN`, `CAJERO`; el cajero ve solo sus ventas |
 | `GET` | `/api/ventas/reportes/mensual?anio=2026&mes=6` | `ADMIN` |
 | `GET` | `/api/ventas/reportes/anual?anio=2026` | `ADMIN` |
 | `GET`, `POST` | `/api/users` | `ADMIN` |
+| `PATCH` | `/api/users/{user_id}` | `ADMIN`; actualiza username, rol o contraseña |
 | `DELETE` | `/api/users/{user_id}` | `ADMIN`; desactiva la cuenta |
 
 ## Estructura del repositorio

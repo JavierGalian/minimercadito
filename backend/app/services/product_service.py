@@ -95,6 +95,60 @@ class ProductService:
             raise
         return self._with_audit([producto])[0]
 
+    def update_stock(
+        self,
+        product_id: int,
+        nuevo_stock: int,
+        user_id: int,
+    ) -> ProductoResponse:
+        try:
+            producto = self.product_repo.get_by_id_for_update(product_id)
+            diferencia = nuevo_stock - producto.stock_actual
+            producto.stock_actual = nuevo_stock
+            self.db.add(
+                InventoryMovementModel(
+                    product_id=producto.id,
+                    user_id=user_id,
+                    change_type=(
+                        "REPOSICION" if diferencia > 0 else "ACTUALIZACION"
+                    ),
+                    quantity_changed=diferencia,
+                )
+            )
+            self.db.commit()
+            self.db.refresh(producto)
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise ConflictError(
+                "No se pudo actualizar el stock por un conflicto de datos."
+            ) from exc
+        except (ApplicationError, SQLAlchemyError):
+            self.db.rollback()
+            raise
+        return self._with_audit([producto])[0]
+
+    def deactivate_product(self, product_id: int, user_id: int) -> None:
+        try:
+            producto = self.product_repo.get_by_id_for_update(product_id)
+            producto.activo = False
+            self.db.add(
+                InventoryMovementModel(
+                    product_id=producto.id,
+                    user_id=user_id,
+                    change_type="BAJA",
+                    quantity_changed=0,
+                )
+            )
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise ConflictError(
+                "No se pudo dar de baja el producto por un conflicto de datos."
+            ) from exc
+        except (ApplicationError, SQLAlchemyError):
+            self.db.rollback()
+            raise
+
     def _with_audit(self, productos: list[Producto]) -> list[ProductoResponse]:
         if not productos:
             return []

@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ProductoCreate(BaseModel):
@@ -13,6 +13,12 @@ class ProductoCreate(BaseModel):
     stock_actual: int = Field(default=0, ge=0)
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class ProductoStockUpdate(BaseModel):
+    stock_actual: int = Field(ge=0)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ProductoUpdate(BaseModel):
@@ -32,6 +38,7 @@ class ProductoResponse(BaseModel):
     codigo_barras: str | None
     precio: Decimal
     stock_actual: int
+    activo: bool
     creado_en: datetime
     creado_por_id: int | None = None
     creado_por: str | None = None
@@ -125,6 +132,29 @@ class UserCreate(BaseModel):
         return password
 
 
+class UserUpdate(BaseModel):
+    username: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9_.-]+$",
+    )
+    password: str | None = Field(default=None, min_length=12, max_length=72)
+    rol: Literal["ADMIN", "CAJERO", "REPOSITOR"] | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> "UserUpdate":
+        if not self.model_fields_set:
+            raise ValueError("Indica al menos un campo para actualizar.")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Los campos enviados no pueden ser nulos.")
+        if self.password is not None and len(self.password.encode("utf-8")) > 72:
+            raise ValueError("La contraseña no puede superar 72 bytes en UTF-8.")
+        return self
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -151,7 +181,13 @@ class InventoryMovementResponse(BaseModel):
     id: int
     product_id: int
     user_id: int
-    change_type: Literal["CREACION", "ACTUALIZACION", "REPOSICION", "VENTA"]
+    change_type: Literal[
+        "CREACION",
+        "ACTUALIZACION",
+        "REPOSICION",
+        "VENTA",
+        "BAJA",
+    ]
     quantity_changed: int
     created_at: datetime
     product_name: str

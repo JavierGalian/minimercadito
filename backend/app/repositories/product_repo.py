@@ -11,12 +11,16 @@ class ProductRepository:
         self.db = db
 
     def get_all(self) -> list[Producto]:
-        statement = select(Producto).order_by(Producto.id)
+        statement = (
+            select(Producto)
+            .where(Producto.activo.is_(True))
+            .order_by(Producto.id)
+        )
         return list(self.db.scalars(statement).all())
 
     def get_by_barcode(self, codigo_barras: str) -> Producto:
         producto = self.find_by_barcode(codigo_barras)
-        if producto is None:
+        if producto is None or not producto.activo:
             raise NotFoundError("No se encontró el producto.")
         return producto
 
@@ -29,7 +33,7 @@ class ProductRepository:
     def get_by_id_for_update(self, producto_id: int) -> Producto:
         statement = (
             select(Producto)
-            .where(Producto.id == producto_id)
+            .where(Producto.id == producto_id, Producto.activo.is_(True))
             .with_for_update()
         )
         producto = self.db.scalar(statement)

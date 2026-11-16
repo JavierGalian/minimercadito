@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from ..api.deps import require_inventory_manager
 from ..core.database import get_db
 from ..models.models import Producto, UserModel
-from ..schemas.schemas import ProductoCreate, ProductoResponse, ProductoUpdate
+from ..schemas.schemas import (
+    ProductoCreate,
+    ProductoResponse,
+    ProductoStockUpdate,
+    ProductoUpdate,
+)
 from ..services.product_service import ProductService
 
 router = APIRouter()
@@ -51,3 +56,33 @@ def actualizar_producto(
         datos,
         current_user.id,
     )
+
+
+@router.patch(
+    "/{product_id}/stock",
+    response_model=ProductoResponse,
+)
+def actualizar_stock_producto(
+    product_id: int,
+    datos: ProductoStockUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_inventory_manager),
+) -> ProductoResponse:
+    return ProductService(db).update_stock(
+        product_id,
+        datos.stock_actual,
+        current_user.id,
+    )
+
+
+@router.delete(
+    "/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def dar_de_baja_producto(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_inventory_manager),
+) -> Response:
+    ProductService(db).deactivate_product(product_id, current_user.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

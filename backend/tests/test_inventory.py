@@ -42,7 +42,7 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
         "nombre": product["nombre"],
         "descripcion": product["descripcion"],
         "codigo_barras": product["codigo_barras"],
-        "precio": product["precio"],
+        "precio": "1300.00",
         "stock_actual": 5,
     }
     update = client.put(
@@ -52,6 +52,7 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
     )
     assert update.status_code == 200
     assert update.json()["stock_actual"] == 5
+    assert update.json()["precio"] == "1300.00"
 
     second_update = client.put(
         f"/api/productos/{product['id']}",
@@ -135,3 +136,79 @@ def test_repositor_can_manage_products_and_view_shared_inventory_history(
     assert forbidden_sales_history.status_code == 403
     assert forbidden_update.status_code == 403
     assert forbidden_create.status_code == 403
+
+
+def test_inventory_stock_update_and_deactivation_are_audited_and_role_protected(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    repositor_headers: dict[str, str],
+    cashier_headers: dict[str, str],
+) -> None:
+    created = client.post(
+        "/api/productos",
+        headers=admin_headers,
+        json={
+            "nombre": "Lentejas",
+            "codigo_barras": "7798000000099",
+            "precio": "800.00",
+            "stock_actual": 4,
+        },
+    )
+    assert created.status_code == 201
+    product_id = created.json()["id"]
+
+    stock_update = client.patch(
+        f"/api/productos/{product_id}/stock",
+        headers=repositor_headers,
+        json={"stock_actual": 9},
+    )
+    assert stock_update.status_code == 200
+    assert stock_update.json()["stock_actual"] == 9
+
+    forbidden_stock_update = client.patch(
+        f"/api/productos/{product_id}/stock",
+        headers=cashier_headers,
+        json={"stock_actual": 2},
+    )
+    forbidden_deactivation = client.delete(
+        f"/api/productos/{product_id}",
+        headers=cashier_headers,
+    )
+    assert forbidden_stock_update.status_code == 403
+    assert forbidden_deactivation.status_code == 403
+
+    deactivated = client.delete(
+        f"/api/productos/{product_id}",
+        headers=repositor_headers,
+    )
+    assert deactivated.status_code == 204
+    assert all(
+        item["id"] != product_id
+        for item in client.get("/api/productos").json()
+    )
+    assert client.get(
+        "/api/productos/codigo-barras/7798000000099",
+    ).status_code == 404
+    assert client.patch(
+        f"/api/productos/{product_id}/stock",
+        headers=repositor_headers,
+        json={"stock_actual": 10},
+    ).status_code == 404
+    assert client.post(
+        "/api/ventas",
+        headers=admin_headers,
+        json={"detalles": [{"producto_id": product_id, "cantidad": 1}]},
+    ).status_code == 404
+
+    history = client.get(
+        "/api/inventario/historial",
+        headers=admin_headers,
+    )
+    product_movements = [
+        item for item in history.json() if item["product_id"] == product_id
+    ]
+    assert [item["change_type"] for item in product_movements] == [
+        "BAJA",
+        "REPOSICION",
+        "CREACION",
+    ]
