@@ -89,14 +89,18 @@ function formatDetail(detail) {
 }
 
 async function request(path, options = {}) {
-  const { skipAuth = false, ...fetchOptions } = options;
+  const {
+    skipAuth = false,
+    responseType = "json",
+    ...fetchOptions
+  } = options;
   const authSession = skipAuth ? null : getAuthSession();
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...fetchOptions,
       headers: {
-        Accept: "application/json",
+        Accept: responseType === "blob" ? "application/pdf" : "application/json",
         ...(fetchOptions.body ? { "Content-Type": "application/json" } : {}),
         ...(authSession
           ? { Authorization: `Bearer ${authSession.token}` }
@@ -111,15 +115,17 @@ async function request(path, options = {}) {
   }
 
   let body = null;
-  const responseText = await response.text();
-  if (responseText) {
-    try {
-      body = JSON.parse(responseText);
-    } catch {
-      throw new ApiError(
-        "El servidor devolvió una respuesta que no se pudo interpretar.",
-        response.status,
-      );
+  if (!(response.ok && responseType === "blob")) {
+    const responseText = await response.text();
+    if (responseText) {
+      try {
+        body = JSON.parse(responseText);
+      } catch {
+        throw new ApiError(
+          "El servidor devolvió una respuesta que no se pudo interpretar.",
+          response.status,
+        );
+      }
     }
   }
 
@@ -134,6 +140,12 @@ async function request(path, options = {}) {
       response.status,
       body?.detail ?? body,
     );
+  }
+  if (responseType === "blob") {
+    return {
+      blob: await response.blob(),
+      contentDisposition: response.headers.get("Content-Disposition"),
+    };
   }
   return body;
 }
@@ -150,6 +162,18 @@ export async function login(username, password) {
 
 export function getProducts() {
   return request("/productos");
+}
+
+export async function exportInventoryPdf() {
+  const { blob, contentDisposition } = await request(
+    "/inventory/export/pdf",
+    { responseType: "blob" },
+  );
+  const filename = /filename="?([^";]+)"?/i.exec(contentDisposition || "")?.[1];
+  if (!filename) {
+    throw new ApiError("El servidor no indicó el nombre del archivo PDF.");
+  }
+  return { blob, filename };
 }
 
 export function getProductByBarcode(code) {

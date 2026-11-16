@@ -30,6 +30,7 @@ export function createInventoryManagement({
   getCurrentRole,
   onSaveProduct,
   onDeactivateProduct,
+  onExportPdf,
   onNotice,
 }) {
   container.innerHTML = `
@@ -48,6 +49,14 @@ export function createInventoryManagement({
         <option value="low">Stock bajo (5 o menos)</option>
         <option value="empty">Sin stock</option>
       </select>
+      <button
+        class="table-action-button table-action-primary inventory-export-button"
+        id="inventory-export-pdf"
+        type="button"
+        data-action="export-pdf"
+      >
+        Exportar PDF
+      </button>
     </div>
     <p class="inventory-feedback" id="inventory-feedback" role="status" aria-live="polite">
       Cargando inventario…
@@ -72,11 +81,13 @@ export function createInventoryManagement({
   const stockFilter = container.querySelector("#inventory-stock-filter");
   const feedback = container.querySelector("#inventory-feedback");
   const tableBody = container.querySelector("#inventory-table-body");
+  const exportButton = container.querySelector("#inventory-export-pdf");
   let products = [];
   let isLoading = false;
   let errorMessage = "";
   let editingProductId = null;
   let busyProductId = null;
+  let isExporting = false;
 
   function setFeedback(message, isError = false) {
     feedback.textContent = message;
@@ -207,6 +218,7 @@ export function createInventoryManagement({
 
   function render() {
     tableBody.replaceChildren();
+    exportButton.hidden = !["ADMIN", "REPOSITOR"].includes(getCurrentRole());
     const filteredProducts = getFilteredProducts().sort((a, b) =>
       a.nombre.localeCompare(b.nombre, "es"),
     );
@@ -276,9 +288,39 @@ export function createInventoryManagement({
     }
   }
 
+  async function exportPdf() {
+    if (isExporting) return;
+    isExporting = true;
+    exportButton.disabled = true;
+    exportButton.textContent = "Generando…";
+    try {
+      const { blob, filename } = await onExportPdf();
+      const objectUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download = filename;
+      downloadLink.hidden = true;
+      document.body.append(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      onNotice("El inventario se descargó correctamente.", "success");
+    } catch (error) {
+      onNotice(error.message, "error");
+    } finally {
+      isExporting = false;
+      exportButton.disabled = false;
+      exportButton.textContent = "Exportar PDF";
+    }
+  }
+
   container.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-action]");
     if (!button || button.disabled) return;
+    if (button.dataset.action === "export-pdf") {
+      await exportPdf();
+      return;
+    }
     const productId = Number(button.dataset.productId);
     const product = products.find((item) => item.id === productId);
     if (!product) return;

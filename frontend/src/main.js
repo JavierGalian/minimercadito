@@ -4,6 +4,7 @@ import {
   createProduct,
   createSale,
   deactivateProduct,
+  exportInventoryPdf,
   getAuthSession,
   getProductByBarcode,
   getProducts,
@@ -409,6 +410,7 @@ const inventoryManagement = createInventoryManagement({
     renderCart();
     setProducts(state.products.filter((item) => item.id !== product.id));
   },
+  onExportPdf: exportInventoryPdf,
   onNotice: showNotice,
 });
 
