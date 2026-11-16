@@ -14,10 +14,17 @@ con Docker Compose y utiliza PostgreSQL como base de datos.
 - **Caja e inventario:** búsqueda de productos, registro transaccional de
   ventas, validación de stock y administración de productos para `ADMIN` y
   `REPOSITOR`.
+- **Bajas lógicas:** los productos y usuarios se desactivan en lugar de
+  eliminarse físicamente, preservando la integridad del historial de ventas y
+  de las auditorías.
 - **Auditoría de inventario:** historial de altas, cambios de stock,
   reposiciones y ventas, con usuario responsable y acceso compartido para
   `ADMIN` y `REPOSITOR`.
-- **Gestión de usuarios:** `ADMIN` puede crear usuarios y desactivar cuentas.
+- **Gestión de usuarios:** `ADMIN` puede crear, actualizar y desactivar
+  cuentas.
+- **Exportación de inventario a PDF:** genera bajo demanda un reporte con los
+  productos activos, la fecha de generación y el usuario responsable, usando
+  ReportLab.
 - **Reportes financieros:** resúmenes mensuales y anuales, disponibles para
   `ADMIN`. Los periodos de los reportes se calculan en UTC.
 - **Errores centralizados:** respuestas de error estructuradas y mensajes en
@@ -29,7 +36,7 @@ con Docker Compose y utiliza PostgreSQL como base de datos.
 
 | Área | Tecnologías |
 | --- | --- |
-| Backend | Python 3.11+ (3.12 en Docker), FastAPI, SQLAlchemy, Pydantic |
+| Backend | Python 3.11+ (3.12 en Docker), FastAPI, SQLAlchemy, Pydantic, ReportLab |
 | Base de datos | PostgreSQL 16, UTF-8 |
 | Migraciones y pruebas | Alembic, pytest, HTTPX |
 | Frontend | Vite, JavaScript modular (Vanilla JS) |
@@ -118,8 +125,9 @@ con Docker Compose y utiliza PostgreSQL como base de datos.
    - API y documentación interactiva: <http://localhost:8000/docs>
    - PostgreSQL: `localhost:${POSTGRES_PORT}` (por defecto, `localhost:5432`)
 
-   Inicia sesión con el usuario `admin` que acabas de crear.    Desde la sección **Usuarios**, un administrador puede dar de alta cuentas
-   `CAJERO`, `REPOSITOR` u otros `ADMIN`.
+   Inicia sesión con el usuario `admin` que acabas de crear. Desde la sección
+   **Usuarios**, un administrador puede dar de alta cuentas `CAJERO`,
+   `REPOSITOR` u otros `ADMIN`.
 
 ### Comandos útiles
 
@@ -166,6 +174,7 @@ Las siguientes cuentas existen **solo en las pruebas automatizadas** de
 | `PATCH` | `/api/productos/{product_id}/stock` | `ADMIN`, `REPOSITOR`; ajusta stock y registra auditoría |
 | `DELETE` | `/api/productos/{product_id}` | `ADMIN`, `REPOSITOR`; baja lógica, conserva ventas e historial |
 | `GET` | `/api/inventario/historial?limit=50&offset=0` | `ADMIN`, `REPOSITOR` |
+| `GET` | `/api/inventory/export/pdf` | `ADMIN`, `REPOSITOR`; exporta el inventario activo a PDF |
 | `POST` | `/api/ventas` | `ADMIN`, `CAJERO` |
 | `GET` | `/api/ventas/historial?limit=50&offset=0` | `ADMIN`, `CAJERO`; el cajero ve solo sus ventas |
 | `GET` | `/api/ventas/reportes/mensual?anio=2026&mes=6` | `ADMIN` |
@@ -229,7 +238,7 @@ Activa el entorno virtual y luego instala las dependencias de desarrollo:
 # macOS/Linux
 source venv/bin/activate
 
-pip install -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
