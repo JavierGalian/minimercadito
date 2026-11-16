@@ -1,21 +1,29 @@
-import { createUser, deactivateUser, getUsers } from "../services/api.js";
+import {
+  createUser,
+  deactivateUser,
+  getUsers,
+  updateUser,
+} from "../services/api.js";
 
 export function createUserManagement({
   container,
   getCurrentUsername,
+  getCurrentRole,
   onNotice,
 }) {
   container.innerHTML = `
+    <p class="user-access-denied" id="user-access-denied" role="alert" hidden></p>
     <div class="user-management-layout">
-      <section class="panel user-form-panel" aria-labelledby="new-user-title">
+      <section class="panel user-form-panel" aria-labelledby="user-form-title">
         <div class="panel-heading">
           <div>
             <p class="section-kicker">ACCESOS DEL EQUIPO</p>
-            <h2 id="new-user-title">Crear usuario</h2>
+            <h2 id="user-form-title">Crear usuario</h2>
           </div>
           <span class="form-icon" aria-hidden="true">＋</span>
         </div>
         <form class="inventory-form" id="user-create-form">
+          <input id="user-id" name="user_id" type="hidden" />
           <label class="field-label" for="user-username">Nombre de usuario</label>
           <input
             class="text-input"
@@ -39,6 +47,7 @@ export function createUserManagement({
             maxlength="72"
             autocomplete="new-password"
             required
+            aria-describedby="user-password-help"
           />
 
           <label class="field-label" for="user-role">Rol</label>
@@ -51,7 +60,12 @@ export function createUserManagement({
           <button class="primary-button add-inventory-button" type="submit">
             Crear usuario
           </button>
-          <p class="form-caption">La contraseña se almacena protegida en el servidor.</p>
+          <button class="secondary-button user-cancel-edit" id="user-cancel-edit" type="button" hidden>
+            Cancelar edición
+          </button>
+          <p class="form-caption" id="user-password-help">
+            La contraseña se almacena protegida en el servidor.
+          </p>
         </form>
       </section>
 
@@ -73,11 +87,19 @@ export function createUserManagement({
 
   const form = container.querySelector("#user-create-form");
   const submitButton = form.querySelector('button[type="submit"]');
+  const usernameInput = form.querySelector("#user-username");
+  const passwordInput = form.querySelector("#user-password");
+  const roleInput = form.querySelector("#user-role");
+  const userIdInput = form.querySelector("#user-id");
+  const formTitle = container.querySelector("#user-form-title");
+  const cancelEditButton = container.querySelector("#user-cancel-edit");
   const feedback = container.querySelector("#users-feedback");
   const tableContainer = container.querySelector("#users-table-container");
   const count = container.querySelector("#users-count");
+  const accessDenied = container.querySelector("#user-access-denied");
   let users = [];
   let isLoading = false;
+  let editingUserId = null;
 
   function setFeedback(message) {
     feedback.textContent = message;
@@ -141,11 +163,22 @@ export function createUserManagement({
 
       const actionCell = document.createElement("td");
       const isCurrentUser = user.username === getCurrentUsername();
+      if (user.activo) {
+        const editButton = document.createElement("button");
+        editButton.className = "user-edit-button";
+        editButton.type = "button";
+        editButton.textContent = "Editar";
+        editButton.dataset.action = "edit";
+        editButton.dataset.userId = String(user.id);
+        editButton.setAttribute("aria-label", `Editar usuario ${user.username}`);
+        actionCell.append(editButton);
+      }
       if (user.activo && !isCurrentUser) {
         const deactivateButton = document.createElement("button");
         deactivateButton.className = "user-deactivate-button";
         deactivateButton.type = "button";
         deactivateButton.textContent = "Desactivar";
+        deactivateButton.dataset.action = "deactivate";
         deactivateButton.dataset.userId = String(user.id);
         deactivateButton.setAttribute(
           "aria-label",
@@ -167,39 +200,93 @@ export function createUserManagement({
     tableContainer.append(table);
   }
 
+  function resetForm() {
+    editingUserId = null;
+    userIdInput.value = "";
+    form.reset();
+    usernameInput.readOnly = false;
+    passwordInput.required = true;
+    passwordInput.placeholder = "";
+    roleInput.disabled = false;
+    formTitle.textContent = "Crear usuario";
+    submitButton.textContent = "Crear usuario";
+    cancelEditButton.hidden = true;
+    container.querySelector("#user-password-help").textContent =
+      "La contraseña se almacena protegida en el servidor.";
+  }
+
+  function startEditing(user) {
+    editingUserId = user.id;
+    userIdInput.value = String(user.id);
+    usernameInput.value = user.username;
+    usernameInput.readOnly = user.username === getCurrentUsername();
+    passwordInput.value = "";
+    passwordInput.required = false;
+    passwordInput.placeholder = "Dejar vacío para conservarla";
+    roleInput.value = user.rol;
+    roleInput.disabled = user.username === getCurrentUsername();
+    formTitle.textContent = `Editar ${user.username}`;
+    submitButton.textContent = "Guardar cambios";
+    cancelEditButton.hidden = false;
+    container.querySelector("#user-password-help").textContent =
+      "Deja la contraseña vacía si no quieres cambiarla.";
+    usernameInput.focus();
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!form.reportValidity() || submitButton.disabled) return;
 
     const data = new FormData(form);
-    const payload = {
-      username: data.get("username").trim(),
-      password: data.get("password"),
-      rol: data.get("rol"),
-    };
+    const payload = { username: data.get("username").trim() };
+    const password = data.get("password");
+    const isEditing = editingUserId !== null;
+    if (!isEditing || password) payload.password = password;
+    if (!roleInput.disabled) payload.rol = data.get("rol");
 
     submitButton.disabled = true;
-    submitButton.textContent = "Creando…";
+    submitButton.textContent = isEditing ? "Guardando…" : "Creando…";
     try {
-      const user = await createUser(payload);
-      users = [user, ...users.filter((item) => item.id !== user.id)];
+      const user = isEditing
+        ? await updateUser(editingUserId, payload)
+        : await createUser({ ...payload, rol: data.get("rol") });
+      users = isEditing
+        ? users.map((item) => (item.id === user.id ? user : item))
+        : [user, ...users.filter((item) => item.id !== user.id)];
       renderUsers();
-      form.reset();
-      onNotice(`Se creó el usuario ${user.username}.`, "success");
+      resetForm();
+      onNotice(
+        isEditing
+          ? `Se actualizó el usuario ${user.username}.`
+          : `Se creó el usuario ${user.username}.`,
+        "success",
+      );
     } catch (error) {
       onNotice(error.message, "error");
     } finally {
       submitButton.disabled = false;
-      submitButton.textContent = "Crear usuario";
+      submitButton.textContent = editingUserId
+        ? "Guardar cambios"
+        : "Crear usuario";
     }
   });
 
+  cancelEditButton.addEventListener("click", resetForm);
+
   tableContainer.addEventListener("click", async (event) => {
-    const button = event.target.closest(".user-deactivate-button");
+    const button = event.target.closest("[data-action]");
     if (!button || button.disabled) return;
 
     const user = users.find((item) => item.id === Number(button.dataset.userId));
-    if (!user || !window.confirm(`¿Desactivar al usuario ${user.username}?`)) {
+    if (!user) return;
+    if (button.dataset.action === "edit") {
+      startEditing(user);
+      return;
+    }
+    if (
+      button.dataset.action !== "deactivate" ||
+      !window.confirm(`¿Desactivar al usuario ${user.username}?`)
+    ) {
       return;
     }
 
@@ -222,6 +309,17 @@ export function createUserManagement({
   return {
     async load() {
       if (isLoading) return;
+      if (getCurrentRole() !== "ADMIN") {
+        accessDenied.textContent =
+          "Acceso restringido: solo ADMIN puede gestionar usuarios.";
+        accessDenied.hidden = false;
+        container.querySelector(".user-form-panel").hidden = true;
+        container.querySelector(".users-list-panel").hidden = true;
+        return;
+      }
+      accessDenied.hidden = true;
+      container.querySelector(".user-form-panel").hidden = false;
+      container.querySelector(".users-list-panel").hidden = false;
       isLoading = true;
       setFeedback("Cargando usuarios…");
       try {

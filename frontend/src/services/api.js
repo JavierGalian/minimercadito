@@ -163,6 +163,19 @@ export function createProduct(product) {
   });
 }
 
+export function updateProduct(productId, product) {
+  return request(`/productos/${encodeURIComponent(productId)}`, {
+    method: "PUT",
+    body: JSON.stringify(product),
+  });
+}
+
+export function deactivateProduct(productId) {
+  return request(`/productos/${encodeURIComponent(productId)}`, {
+    method: "DELETE",
+  });
+}
+
 export function createSale(sale) {
   return request("/ventas", {
     method: "POST",
@@ -177,6 +190,13 @@ export function getUsers() {
 export function createUser(user) {
   return request("/users", {
     method: "POST",
+    body: JSON.stringify(user),
+  });
+}
+
+export function updateUser(userId, user) {
+  return request(`/users/${encodeURIComponent(userId)}`, {
+    method: "PATCH",
     body: JSON.stringify(user),
   });
 }

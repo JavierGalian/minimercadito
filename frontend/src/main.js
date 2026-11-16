@@ -3,10 +3,12 @@ import {
   clearAuthSession,
   createProduct,
   createSale,
+  deactivateProduct,
   getAuthSession,
   getProductByBarcode,
   getProducts,
   setUnauthorizedHandler,
+  updateProduct,
 } from "./services/api.js";
 import { formatCurrency } from "./services/format.js";
 import { createCartTable } from "./components/CartTable.js";
@@ -15,19 +17,8 @@ import { createLoginModal } from "./components/LoginModal.js";
 import { createProductSearch } from "./components/ProductSearch.js";
 import { createSalesHistory } from "./components/SalesHistory.js";
 import { createFinancialReports } from "./components/FinancialReports.js";
+import { createInventoryManagement } from "./components/InventoryManagement.js";
 import { createUserManagement } from "./components/UserManagement.js";
-
-const inventoryDateFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatInventoryDate(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "No disponible"
-    : inventoryDateFormatter.format(date);
-}
 
 const app = document.querySelector("#app");
 
@@ -128,7 +119,7 @@ app.innerHTML = `
             </div>
             <span class="count-pill" id="inventory-count">0 productos</span>
           </div>
-          <div id="inventory-list" class="inventory-list"></div>
+          <div id="inventory-list-management"></div>
         </section>
       </div>
     </section>
@@ -204,7 +195,7 @@ function setProducts(products) {
     }
   }
   productSearch.setProducts(products);
-  renderInventory();
+  inventoryManagement.setProducts(products);
   document.querySelector("#product-count").textContent =
     `${products.length} ${products.length === 1 ? "producto" : "productos"}`;
 }
@@ -261,74 +252,6 @@ function renderCart() {
   cartTable.setBusy(state.busy);
 }
 
-function renderInventory() {
-  const list = document.querySelector("#inventory-list");
-  const count = document.querySelector("#inventory-count");
-  count.textContent =
-    `${state.products.length} ${state.products.length === 1 ? "producto" : "productos"}`;
-  list.replaceChildren();
-
-  if (state.products.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "inventory-empty";
-    empty.textContent = "Todavía no hay productos cargados.";
-    list.append(empty);
-    return;
-  }
-
-  for (const product of [...state.products].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre, "es"),
-  )) {
-    const row = document.createElement("article");
-    row.className = "inventory-row";
-
-    const details = document.createElement("div");
-    details.className = "inventory-product";
-    const name = document.createElement("strong");
-    name.textContent = product.nombre;
-    const code = document.createElement("span");
-    code.textContent = product.codigo_barras || "Sin código de barras";
-    const createdAt = document.createElement("span");
-    createdAt.className = "inventory-audit";
-    createdAt.textContent = `Fecha de alta: ${formatInventoryDate(product.creado_en)}`;
-    const createdBy = document.createElement("span");
-    createdBy.className = "inventory-audit";
-    createdBy.textContent = `Registrado por: ${
-      product.creado_por || "No disponible"
-    }`;
-    details.append(name, code, createdAt, createdBy);
-
-    if (product.actualizado_en) {
-      const lastUpdate = document.createElement("span");
-      lastUpdate.className = "inventory-audit";
-      lastUpdate.textContent = `Último movimiento: ${formatInventoryDate(
-        product.actualizado_en,
-      )} · ${product.actualizado_por || "No disponible"}`;
-      details.append(lastUpdate);
-    }
-
-    const price = document.createElement("strong");
-    price.className = "inventory-price";
-    price.textContent = formatCurrency(product.precio);
-
-    const stock = document.createElement("span");
-    stock.className = `stock-badge ${
-      product.stock_actual === 0
-        ? "stock-empty"
-        : product.stock_actual <= 5
-          ? "stock-low"
-          : "stock-good"
-    }`;
-    stock.textContent =
-      product.stock_actual === 0
-        ? "Sin stock"
-        : `${product.stock_actual} ${product.stock_actual === 1 ? "unidad" : "unidades"}`;
-
-    row.append(details, price, stock);
-    list.append(row);
-  }
-}
-
 function updateSessionUI() {
   const isAdmin = state.user?.rol === "ADMIN";
   const canManageInventory = isAdmin || state.user?.rol === "REPOSITOR";
@@ -357,8 +280,16 @@ function updateSessionUI() {
 }
 
 async function refreshProducts() {
-  const products = await getProducts();
-  setProducts(products);
+  inventoryManagement.setLoading(true);
+  try {
+    const products = await getProducts();
+    setProducts(products);
+  } catch (error) {
+    inventoryManagement.setError(error.message);
+    throw error;
+  } finally {
+    inventoryManagement.setLoading(false);
+  }
 }
 
 async function activateSession(session) {
@@ -460,6 +391,27 @@ async function submitProduct(payload) {
   showNotice(`${product.nombre} se agregó al inventario.`, "success");
 }
 
+const inventoryManagement = createInventoryManagement({
+  container: document.querySelector("#inventory-list-management"),
+  getCurrentRole: () => state.user?.rol,
+  onSaveProduct: async (product, payload) => {
+    const updatedProduct = await updateProduct(product.id, payload);
+    setProducts(
+      state.products.map((item) =>
+        item.id === updatedProduct.id ? updatedProduct : item,
+      ),
+    );
+    return updatedProduct;
+  },
+  onDeactivateProduct: async (product) => {
+    await deactivateProduct(product.id);
+    state.cart.delete(product.id);
+    renderCart();
+    setProducts(state.products.filter((item) => item.id !== product.id));
+  },
+  onNotice: showNotice,
+});
+
 const productSearch = createProductSearch({
   container: document.querySelector("#product-search"),
   onSelect: addToCart,
@@ -483,6 +435,7 @@ createInventoryForm({
 const userManagement = createUserManagement({
   container: document.querySelector("#user-management"),
   getCurrentUsername: () => state.user?.username,
+  getCurrentRole: () => state.user?.rol,
   onNotice: showNotice,
 });
 
@@ -500,11 +453,15 @@ function switchView(view) {
   const isAdmin = state.user?.rol === "ADMIN";
   const canManageInventory = isAdmin || state.user?.rol === "REPOSITOR";
   const canOperatePos = isAdmin || state.user?.rol === "CAJERO";
-  if (
+  const isForbidden =
     (view === "inventory" && !canManageInventory) ||
     (["users", "reports"].includes(view) && !isAdmin) ||
-    (["pos", "history"].includes(view) && !canOperatePos)
-  ) {
+    (["pos", "history"].includes(view) && !canOperatePos);
+  if (isForbidden) {
+    if (state.user) {
+      showNotice("Tu rol no tiene permiso para acceder a esta sección.", "error");
+      switchView(state.user.rol === "REPOSITOR" ? "inventory" : "pos");
+    }
     return;
   }
 
@@ -568,6 +525,7 @@ document.querySelector("#tab-pos").addEventListener("click", () => {
 document.querySelector("#tab-inventory").addEventListener("click", () => {
   if (["ADMIN", "REPOSITOR"].includes(state.user?.rol)) {
     switchView("inventory");
+    void refreshProducts().catch((error) => showNotice(error.message, "error"));
   }
 });
 document.querySelector("#tab-users").addEventListener("click", () => {
